@@ -310,221 +310,182 @@ window.onload = () => {
         "https://raw.githubusercontent.com/shahadAlmohammadi/3d-voice-assistant/main/assets/about-us.mp3"
     }
   ];
-  let isUserStopped = false;
-  let isRecognitionRunning = false;
-  let userInteracted = false;
-  const transcriptOutput = document.getElementById("transcriptOutput");
-  const heardText = document.getElementById("heardText");
 
-  function logToUI(message, icon = "") {
-    const timestamp = new Date().toLocaleTimeString();
-    heardText.innerHTML += `<br>${icon} ${message}`;
+  function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    speechSynthesis.speak(utterance);
   }
 
-  localStorage.clear();
-  sessionStorage.clear();
-
-  window.onload = () => {
-    document.body.addEventListener("click", () => {}, {
-      once: true,
-      passive: true
-    });
-
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Your browser does not support Speech Recognition.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.continuous = true;
-
-    const voiceBtn = document.getElementById("voiceBtn");
-
-    const qaList = [
-      // ... (نفس qaList عندك)
-    ];
-
-    function speak(text) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
-      speechSynthesis.speak(utterance);
-    }
-
-    function restartRecognition() {
-      try {
-        if (recognition) {
-          recognition.stop();
-          recognition.start();
-          logToUI("🔄 Recognition restarted");
-          console.log("🔄 Recognition restarted");
-        }
-      } catch (error) {
-        logToUI("❌ Failed to restart recognition:", error);
-        console.error("❌ Failed to restart recognition:", error);
-      }
-    }
-    recognition.onresult = (event) => {
-      const text = event.results[event.resultIndex][0].transcript.toLowerCase();
-      document.getElementById("heardText").textContent = text;
-      console.log("🎧 Heard:", text);
-      logToUI("🎧 Heard: " + text);
-
-      let matchedQA = null;
-      for (const qa of qaList) {
-        if (qa.questionKeywords.some((kw) => text.includes(kw))) {
-          matchedQA = qa;
-          break;
-        }
-      }
-
-      if (matchedQA) {
-        const audio = new Audio(matchedQA.audioSrc);
-
-        if (!userInteracted) {
-          logToUI("⛔️ iOS won’t allow audio before user interaction.");
-          console.warn("⛔️ iOS won’t allow audio before user interaction.");
-          return;
-        }
-
-        // أوقف التعرف مؤقتًا عشان ما يتعارض مع الصوت
+  function restartRecognition() {
+    try {
+      if (recognition) {
         recognition.stop();
-
-        // لما يخلص الصوت، يرجع يبدأ الاستماع
-        audio.onended = () => {
-          if (!isUserStopped) {
-            setTimeout(() => {
-              recognition.start();
-              logToUI("✅ بدأ التعرف الصوتي");
-            }, 300);
-          }
-        };
-
-        audio.play().catch((err) => {
-          logToUI("❌ Audio play failed: " + err.message);
-          console.error("❌ Audio play failed:", err);
-          // لو فشل الصوت حاول تعيد التشغيل
-          if (!isUserStopped) {
-            recognition.start();
-            logToUI("✅ بدأ التعرف الصوتي");
-          }
-        });
-      } else {
-        const notFoundAudio = new Audio(
-          "https://raw.githubusercontent.com/shahadAlmohammadi/3d-voice-assistant/main/assets/repeat_request.mp3"
-        );
-
-        if (!userInteracted) {
-          logToUI("⛔️ iOS won’t allow audio before user interaction.");
-          console.warn("⛔️ iOS won’t allow audio before user interaction.");
-          return;
-        }
-
-        recognition.stop();
-
-        notFoundAudio.onended = () => {
-          if (!isUserStopped) {
-            setTimeout(() => {
-              recognition.start();
-              logToUI("✅ بدأ التعرف الصوتي");
-            }, 300);
-          }
-        };
-
-        notFoundAudio.play().catch((err) => {
-          logToUI("❌ Not found audio failed: " + err.message);
-          console.error("❌ Not found audio failed:", err);
-          if (!isUserStopped) {
-            recognition.start();
-            logToUI("✅ بدأ التعرف الصوتي");
-          }
-        });
+        recognition.start();
+        logToUI("🔄 Recognition restarted");
+        console.log("🔄 Recognition restarted");
       }
-    };
+    } catch (error) {
+      logToUI("❌ Failed to restart recognition:", error);
+      console.error("❌ Failed to restart recognition:", error);
+    }
+  }
+  recognition.onresult = (event) => {
+    const text = event.results[event.resultIndex][0].transcript.toLowerCase();
+    document.getElementById("heardText").textContent = text;
+    console.log("🎧 Heard:", text);
+    logToUI("🎧 Heard: " + text);
 
-    recognition.onerror = (event) => {
-      logToUI("❌ Error: " + event.error);
-      console.error("❌ Error:", event.error);
-      document.getElementById("heardText").textContent =
-        "⚠️ Error: " + event.error;
-      voiceBtn.classList.add("error");
+    let matchedQA = null;
+    for (const qa of qaList) {
+      if (qa.questionKeywords.some((kw) => text.includes(kw))) {
+        matchedQA = qa;
+        break;
+      }
+    }
 
-      const errorAudio = new Audio(
-        "https://raw.githubusercontent.com/shahadAlmohammadi/3d-voice-assistant/main/assets/repeat_request.mp3"
-      );
+    if (matchedQA) {
+      const audio = new Audio(matchedQA.audioSrc);
+
       if (!userInteracted) {
         logToUI("⛔️ iOS won’t allow audio before user interaction.");
         console.warn("⛔️ iOS won’t allow audio before user interaction.");
         return;
       }
-      errorAudio.play().catch((err) => {
-        logToUI("❌ Could not play fallback audio: " + err.message);
-        console.error("❌ Could not play fallback audio:", err);
-        restartRecognition();
-      });
-    };
 
-    recognition.onend = () => {
-      console.log("🔁 Recognition ended");
-      heardText.textContent = "⏹️ Recognition ended";
-      if (isUserStopped) {
-        logToUI("🛑 User stopped listening. Not restarting.");
-        console.log("🛑 User stopped listening. Not restarting.");
+      // أوقف التعرف مؤقتًا عشان ما يتعارض مع الصوت
+      recognition.stop();
+
+      // لما يخلص الصوت، يرجع يبدأ الاستماع
+      audio.onended = () => {
+        if (!isUserStopped) {
+          setTimeout(() => {
+            recognition.start();
+            logToUI("✅ بدأ التعرف الصوتي");
+          }, 300);
+        }
+      };
+
+      audio.play().catch((err) => {
+        logToUI("❌ Audio play failed: " + err.message);
+        console.error("❌ Audio play failed:", err);
+        // لو فشل الصوت حاول تعيد التشغيل
+        if (!isUserStopped) {
+          recognition.start();
+          logToUI("✅ بدأ التعرف الصوتي");
+        }
+      });
+    } else {
+      const notFoundAudio = new Audio(
+        "https://raw.githubusercontent.com/shahadAlmohammadi/3d-voice-assistant/main/assets/repeat_request.mp3"
+      );
+
+      if (!userInteracted) {
+        logToUI("⛔️ iOS won’t allow audio before user interaction.");
+        console.warn("⛔️ iOS won’t allow audio before user interaction.");
         return;
       }
 
-      if (isRecognitionRunning) {
-        logToUI("🔄 Restarted via onend");
-        console.log("🔄 Restarted via onend");
-        setTimeout(() => {
-          try {
+      recognition.stop();
+
+      notFoundAudio.onended = () => {
+        if (!isUserStopped) {
+          setTimeout(() => {
             recognition.start();
             logToUI("✅ بدأ التعرف الصوتي");
-            console.log("Start recognition");
-          } catch (e) {
-            logToUI("❌ Could not restart: " + e.message);
-            console.error("❌ Could not restart:", e);
-          }
-        }, 200);
-      }
-    };
+          }, 300);
+        }
+      };
 
-    voiceBtn.addEventListener("click", () => {
-      userInteracted = true; // ⬅️ نعلّم أن المستخدم تفاعل
-      if (!isRecognitionRunning) {
-        // حالة التشغيل
-        voiceBtn.textContent = "🎧 Listening...";
-        voiceBtn.classList.add("listening");
-        isUserStopped = false;
-        isRecognitionRunning = true;
+      notFoundAudio.play().catch((err) => {
+        logToUI("❌ Not found audio failed: " + err.message);
+        console.error("❌ Not found audio failed:", err);
+        if (!isUserStopped) {
+          recognition.start();
+          logToUI("✅ بدأ التعرف الصوتي");
+        }
+      });
+    }
+  };
 
+  recognition.onerror = (event) => {
+    logToUI("❌ Error: " + event.error);
+    console.error("❌ Error:", event.error);
+    document.getElementById("heardText").textContent =
+      "⚠️ Error: " + event.error;
+    voiceBtn.classList.add("error");
+
+    const errorAudio = new Audio(
+      "https://raw.githubusercontent.com/shahadAlmohammadi/3d-voice-assistant/main/assets/repeat_request.mp3"
+    );
+    if (!userInteracted) {
+      logToUI("⛔️ iOS won’t allow audio before user interaction.");
+      console.warn("⛔️ iOS won’t allow audio before user interaction.");
+      return;
+    }
+    errorAudio.play().catch((err) => {
+      logToUI("❌ Could not play fallback audio: " + err.message);
+      console.error("❌ Could not play fallback audio:", err);
+      restartRecognition();
+    });
+  };
+
+  recognition.onend = () => {
+    console.log("🔁 Recognition ended");
+    heardText.textContent = "⏹️ Recognition ended";
+    if (isUserStopped) {
+      logToUI("🛑 User stopped listening. Not restarting.");
+      console.log("🛑 User stopped listening. Not restarting.");
+      return;
+    }
+
+    if (isRecognitionRunning) {
+      logToUI("🔄 Restarted via onend");
+      console.log("🔄 Restarted via onend");
+      setTimeout(() => {
         try {
           recognition.start();
           logToUI("✅ بدأ التعرف الصوتي");
-          console.log("✅ بدأ التعرف الصوتي");
-        } catch (error) {
-          logToUI("❌ فشل التشغيل: " + error.message);
-          console.error("❌ فشل التشغيل:", error);
-          voiceBtn.textContent = "🎤 Talk to me";
-          voiceBtn.classList.remove("listening");
-          isRecognitionRunning = false;
+          console.log("Start recognition");
+        } catch (e) {
+          logToUI("❌ Could not restart: " + e.message);
+          console.error("❌ Could not restart:", e);
         }
-      } else {
-        // حالة الإيقاف
+      }, 200);
+    }
+  };
+
+  voiceBtn.addEventListener("click", () => {
+    userInteracted = true; // ⬅️ نعلّم أن المستخدم تفاعل
+    if (!isRecognitionRunning) {
+      // حالة التشغيل
+      voiceBtn.textContent = "🎧 Listening...";
+      voiceBtn.classList.add("listening");
+      isUserStopped = false;
+      isRecognitionRunning = true;
+
+      try {
+        recognition.start();
+        logToUI("✅ بدأ التعرف الصوتي");
+        console.log("✅ بدأ التعرف الصوتي");
+      } catch (error) {
+        logToUI("❌ فشل التشغيل: " + error.message);
+        console.error("❌ فشل التشغيل:", error);
         voiceBtn.textContent = "🎤 Talk to me";
         voiceBtn.classList.remove("listening");
-        isUserStopped = true;
         isRecognitionRunning = false;
-
-        recognition.stop();
-        recognition.abort();
-        logToUI("🛑 توقف التعرف الصوتي");
-        console.log("🛑 توقف التعرف الصوتي");
       }
-    });
-  };
+    } else {
+      // حالة الإيقاف
+      voiceBtn.textContent = "🎤 Talk to me";
+      voiceBtn.classList.remove("listening");
+      isUserStopped = true;
+      isRecognitionRunning = false;
+
+      recognition.stop();
+      recognition.abort();
+      logToUI("🛑 توقف التعرف الصوتي");
+      console.log("🛑 توقف التعرف الصوتي");
+    }
+  });
 };
